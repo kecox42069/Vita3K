@@ -59,9 +59,10 @@ void sync_texture(VKContext &context, MemState &mem, std::size_t index, SceGxmTe
     uint16_t height = static_cast<std::uint16_t>(gxm::get_height(&texture));
 
     if (renderer::texture::convert_base_texture_format_to_base_color_format(base_format, format_target_of_texture)) {
+		uint32_t texture_type = texture.texture_type();
         std::uint16_t stride_in_pixels = width;
 
-        switch (texture.texture_type()) {
+        switch (texture_type) {
         case SCE_GXM_TEXTURE_LINEAR_STRIDED:
             stride_in_pixels = static_cast<std::uint16_t>(gxm::get_stride_in_bytes(&texture)) / ((renderer::texture::bits_per_pixel(base_format) + 7) >> 3);
             break;
@@ -77,9 +78,14 @@ void sync_texture(VKContext &context, MemState &mem, std::size_t index, SceGxmTe
 
         vk::ComponentMapping swizzle = texture::translate_swizzle(format);
 
-        image = context.state.surface_cache.retrieve_color_surface_texture_handle(
-            width, height, stride_in_pixels, format_target_of_texture, static_cast<bool>(texture.gamma_mode), Ptr<void>(data_addr),
-            renderer::SurfaceTextureRetrievePurpose::READING, swizzle);
+        if (texture_type == 0) {
+            renderer::texture::cache_and_bind_texture(context.state.texture_cache, texture, mem);
+            image = &context.state.texture_cache.current_texture->texture;
+        } else {
+            image = context.state.surface_cache.retrieve_color_surface_texture_handle(
+                        width, height, stride_in_pixels, format_target_of_texture, static_cast<bool>(texture.gamma_mode), Ptr<void>(data_addr),
+                        renderer::SurfaceTextureRetrievePurpose::READING, swizzle);
+        }
     }
 
     vk::ImageLayout layout = vk::ImageLayout::eShaderReadOnlyOptimal;
